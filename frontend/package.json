@@ -1,5 +1,8 @@
 {
   "dependencies": {
-    "@supabase/supabase-js": "^2.119.0"
+    "@hookform/resolvers": "^7.0.6",
+    "@supabase/supabase-js": "^2.119.0",
+    "react-hook-form": "^7.92.0",
+    "zod": "^4.6.7"
   }
 }
