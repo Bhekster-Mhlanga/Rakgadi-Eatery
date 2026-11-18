@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { LogOut, User } from "lucide-react";
 import { signOut } from "@/features/auth/actions/sign-out";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +17,10 @@ function LoginLink() {
 
 /** Shows a Login icon, or the customer's first name with a Log out button. */
 export async function UserMenu() {
+  // Depends on who is logged in, so render it per request, never at build time.
+  // (Supabase reads the current time to check the session has not expired.)
+  await connection();
+
   // Without Supabase settings there is no session to look up.
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
