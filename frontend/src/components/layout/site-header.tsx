@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ShoppingCart, User } from "lucide-react";
+import { UserMenu } from "@/components/layout/user-menu";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -41,13 +43,15 @@ export function SiteHeader() {
           >
             <ShoppingCart className="size-5" />
           </Link>
-          <Link
-            href="/login"
-            aria-label="Account"
-            className="rounded-md p-2 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          <Suspense
+            fallback={
+              <span aria-hidden="true" className="inline-block p-2">
+                <User className="size-5 text-muted-foreground" />
+              </span>
+            }
           >
-            <User className="size-5" />
-          </Link>
+            <UserMenu />
+          </Suspense>
         </div>
       </div>
 
