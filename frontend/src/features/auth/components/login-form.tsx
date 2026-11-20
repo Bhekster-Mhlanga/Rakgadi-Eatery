@@ -12,13 +12,20 @@ import { Label } from "@/components/ui/label";
 import { login } from "@/features/auth/actions/login";
 import {
   loginSchema,
+  type LoginMethod,
   type LoginValues,
 } from "@/features/auth/schemas/login-schema";
 
 const pillInput = "h-11 rounded-full px-4";
 
+const METHOD_LABELS: Record<LoginMethod, string> = {
+  email: "Email",
+  phone: "Phone number",
+};
+
 export function LoginForm() {
   const searchParams = useSearchParams();
+  const [method, setMethod] = useState<LoginMethod>("email");
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(
     searchParams.get("error") === "oauth"
@@ -29,18 +36,32 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
+    setValue,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { identifier: "", password: "" },
+    defaultValues: { method: "email", email: "", phone: "", password: "" },
   });
+
+  function chooseMethod(next: LoginMethod) {
+    setMethod(next);
+    setValue("method", next);
+    clearErrors();
+    setServerError(null);
+  }
 
   async function onSubmit(values: LoginValues) {
     setServerError(null);
     try {
       // On success the server redirects, so we only get a result back for errors.
       const result = await login(values, searchParams.get("next"));
-      if (result?.error) setServerError(result.error);
+      if (result?.field) {
+        setError(result.field, { message: result.error });
+      } else if (result?.error) {
+        setServerError(result.error);
+      }
     } catch {
       setServerError("Something went wrong. Please try again.");
     }
@@ -48,25 +69,68 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-      <div className="space-y-1.5">
-        <Label htmlFor="identifier">Email or phone number</Label>
-        <Input
-          id="identifier"
-          type="text"
-          autoComplete="username"
-          autoCapitalize="none"
-          spellCheck={false}
-          className={pillInput}
-          aria-invalid={Boolean(errors.identifier)}
-          aria-describedby={errors.identifier ? "identifier-error" : undefined}
-          {...register("identifier")}
-        />
-        {errors.identifier && (
-          <p id="identifier-error" role="alert" className="text-sm text-destructive">
-            {errors.identifier.message}
-          </p>
-        )}
+      <div
+        role="group"
+        aria-label="Log in with"
+        className="grid grid-cols-2 gap-1 rounded-full bg-muted p-1"
+      >
+        {(Object.keys(METHOD_LABELS) as LoginMethod[]).map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => chooseMethod(option)}
+            aria-pressed={method === option}
+            className={`h-9 rounded-full text-sm font-medium transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${
+              method === option
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {METHOD_LABELS[option]}
+          </button>
+        ))}
       </div>
+
+      {method === "email" ? (
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            className={pillInput}
+            aria-invalid={Boolean(errors.email)}
+            aria-describedby={errors.email ? "email-error" : undefined}
+            {...register("email")}
+          />
+          {errors.email && (
+            <p id="email-error" role="alert" className="text-sm text-destructive">
+              {errors.email.message}
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <Label htmlFor="phone">Phone number</Label>
+          <Input
+            id="phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="082 123 4567"
+            className={pillInput}
+            aria-invalid={Boolean(errors.phone)}
+            aria-describedby={errors.phone ? "phone-error" : undefined}
+            {...register("phone")}
+          />
+          {errors.phone && (
+            <p id="phone-error" role="alert" className="text-sm text-destructive">
+              {errors.phone.message}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <Label htmlFor="password">Password</Label>

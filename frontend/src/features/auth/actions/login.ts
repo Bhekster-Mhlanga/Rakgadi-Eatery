@@ -3,16 +3,15 @@
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { looksLikeEmail, normalizePhone } from "@/features/auth/lib/phone";
+import { normalizePhone } from "@/features/auth/lib/phone";
 import { getSafeRedirectPath } from "@/features/auth/lib/safe-redirect";
 import { loginSchema } from "@/features/auth/schemas/login-schema";
 
-export type LoginResult = { error: string };
+export type LoginResult = { error: string; field?: "phone" };
 
-/** Same message whether the account is missing or the password is wrong. */
-const WRONG_DETAILS =
-  "Incorrect email, phone number or password. Please try again.";
+const GOOGLE_HINT = "If you signed up with Google, use “Continue with Google”.";
 
+/** Step 1 for phone login: does an account with this number exist? */
 async function findEmailByPhone(phone: string): Promise<string | null> {
   const admin = createAdminClient();
   if (!admin) return null;
@@ -31,27 +30,39 @@ export async function login(
   next?: string | null,
 ): Promise<LoginResult> {
   const parsed = loginSchema.safeParse(input);
-  if (!parsed.success) return { error: WRONG_DETAILS };
+  if (!parsed.success) {
+    return { error: "Please check your details and try again." };
+  }
 
-  const { identifier, password } = parsed.data;
+  const values = parsed.data;
+  let email: string;
 
-  let email: string | null;
-  if (looksLikeEmail(identifier)) {
-    email = identifier.toLowerCase();
+  if (values.method === "email") {
+    email = values.email.toLowerCase();
   } else {
     if (!createAdminClient()) {
       return {
         error: "Phone number login isn't available yet. Please use your email.",
       };
     }
-    const phone = normalizePhone(identifier);
-    email = phone ? await findEmailByPhone(phone) : null;
+
+    const phone = normalizePhone(values.phone);
+    const found = phone ? await findEmailByPhone(phone) : null;
+    if (!found) {
+      return {
+        field: "phone",
+        error: "We couldn't find an account with that phone number.",
+      };
+    }
+    email = found;
   }
 
-  if (!email) return { error: WRONG_DETAILS };
-
+  // Step 2: Supabase checks the password and starts the session.
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password: values.password,
+  });
 
   if (error) {
     if (error.code === "over_request_rate_limit") {
@@ -60,7 +71,12 @@ export async function login(
     if (error.code === "email_not_confirmed") {
       return { error: "Please confirm your email first. Check your inbox." };
     }
-    return { error: WRONG_DETAILS };
+    return {
+      error:
+        values.method === "phone"
+          ? `Incorrect password. ${GOOGLE_HINT}`
+          : `Incorrect email or password. ${GOOGLE_HINT}`,
+    };
   }
 
   redirect(getSafeRedirectPath(next));
