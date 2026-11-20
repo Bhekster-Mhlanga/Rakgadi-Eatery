@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizePhone } from "@/features/auth/lib/phone";
 
 export const registerSchema = z
   .object({
@@ -12,6 +13,14 @@ export const registerSchema = z
       .trim()
       .toLowerCase()
       .pipe(z.email("Enter a valid email address")),
+    // Optional. Blank is fine; if filled in it must be a real phone number.
+    phone: z
+      .string()
+      .trim()
+      .refine(
+        (value) => value === "" || normalizePhone(value) !== null,
+        "Enter a valid phone number, for example 082 123 4567",
+      ),
     password: z
       .string()
       .min(8, "Use at least 8 characters")

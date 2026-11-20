@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { SocialLogin } from "@/features/auth/components/social-login";
 import { AuthShell } from "@/features/auth/components/auth-shell";
 import { LoginForm } from "@/features/auth/components/login-form";
 
@@ -16,6 +17,7 @@ export default function LoginPage() {
     >
       <Suspense>
         <LoginForm />
+        <SocialLogin />
       </Suspense>
     </AuthShell>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,8 +9,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/supabase/client";
-import { getSafeRedirectPath } from "@/features/auth/lib/safe-redirect";
+import { login } from "@/features/auth/actions/login";
 import {
   loginSchema,
   type LoginValues,
@@ -18,24 +17,14 @@ import {
 
 const pillInput = "h-11 rounded-full px-4";
 
-function friendlyError(code: string | undefined): string {
-  switch (code) {
-    case "invalid_credentials":
-      return "Incorrect email or password. Please try again.";
-    case "email_not_confirmed":
-      return "Please confirm your email first. Check your inbox for the link.";
-    case "over_request_rate_limit":
-      return "Too many attempts. Please wait a minute and try again.";
-    default:
-      return "We couldn't log you in. Please try again.";
-  }
-}
-
 export function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(
+    searchParams.get("error") === "oauth"
+      ? "Google sign-in didn't work. Please try again."
+      : null,
+  );
 
   const {
     register,
@@ -43,25 +32,15 @@ export function LoginForm() {
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { identifier: "", password: "" },
   });
 
   async function onSubmit(values: LoginValues) {
     setServerError(null);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: values.password,
-      });
-
-      if (error) {
-        setServerError(friendlyError(error.code));
-        return;
-      }
-
-      router.push(getSafeRedirectPath(searchParams.get("next")));
-      router.refresh();
+      // On success the server redirects, so we only get a result back for errors.
+      const result = await login(values, searchParams.get("next"));
+      if (result?.error) setServerError(result.error);
     } catch {
       setServerError("Something went wrong. Please try again.");
     }
@@ -70,20 +49,21 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="identifier">Email or phone number</Label>
         <Input
-          id="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
+          id="identifier"
+          type="text"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
           className={pillInput}
-          aria-invalid={Boolean(errors.email)}
-          aria-describedby={errors.email ? "email-error" : undefined}
-          {...register("email")}
+          aria-invalid={Boolean(errors.identifier)}
+          aria-describedby={errors.identifier ? "identifier-error" : undefined}
+          {...register("identifier")}
         />
-        {errors.email && (
-          <p id="email-error" role="alert" className="text-sm text-destructive">
-            {errors.email.message}
+        {errors.identifier && (
+          <p id="identifier-error" role="alert" className="text-sm text-destructive">
+            {errors.identifier.message}
           </p>
         )}
       </div>

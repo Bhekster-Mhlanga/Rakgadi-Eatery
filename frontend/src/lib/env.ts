@@ -30,3 +30,14 @@ export function getPublicEnv() {
 
   return parsed.data;
 }
+
+/**
+ * Server-only secret that bypasses Row Level Security. Used ONLY to look up a
+ * phone number when someone logs in or registers. Never prefix it with
+ * NEXT_PUBLIC_ and never import it into a Client Component.
+ * Returns null when it is not set, so phone features can switch themselves off.
+ */
+export function getServiceRoleKey(): string | null {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return key && key.length > 0 ? key : null;
+}

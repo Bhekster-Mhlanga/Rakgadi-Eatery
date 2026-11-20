@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,7 +8,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/supabase/client";
+import { registerUser } from "@/features/auth/actions/register";
 import {
   registerSchema,
   type RegisterValues,
@@ -17,27 +16,7 @@ import {
 
 const pillInput = "h-11 rounded-full px-4";
 
-function friendlyError(code: string | undefined): string {
-  switch (code) {
-    case "user_already_exists":
-    case "email_exists":
-      return "An account with this email already exists. Try logging in instead.";
-    case "weak_password":
-      return "That password is too easy to guess. Try a longer one.";
-    case "over_request_rate_limit":
-    case "over_email_send_rate_limit":
-      return "Too many attempts. Please wait a minute and try again.";
-    case "email_address_invalid":
-      return "That email address isn't accepted. Please check it.";
-    case "signup_disabled":
-      return "Sign-ups are turned off right now.";
-    default:
-      return "We couldn't create your account. Please try again.";
-  }
-}
-
 export function RegisterForm() {
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -45,35 +24,33 @@ export function RegisterForm() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { fullName: "", email: "", password: "", confirmPassword: "" },
+    defaultValues: {
+      fullName: "",
+      email: "",
+      phone: "",
+      password: "",
+      confirmPassword: "",
+    },
   });
 
   async function onSubmit(values: RegisterValues) {
     setServerError(null);
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signUp({
-        email: values.email,
-        password: values.password,
-        options: { data: { full_name: values.fullName } },
-      });
-
-      if (error) {
-        setServerError(friendlyError(error.code));
+      // On success the server redirects, so we only get a result back otherwise.
+      const result = await registerUser(values);
+      if (result.status === "check-email") {
+        setCheckEmail(true);
         return;
       }
-
-      if (data.session) {
-        router.push("/");
-        router.refresh();
-        return;
+      if (result.field) {
+        setError(result.field, { message: result.message });
+      } else {
+        setServerError(result.message);
       }
-
-      // Email confirmation is switched on in Supabase: no session until they confirm.
-      setCheckEmail(true);
     } catch {
       setServerError("Something went wrong. Please try again.");
     }
@@ -128,6 +105,31 @@ export function RegisterForm() {
         {errors.email && (
           <p id="email-error" role="alert" className="text-sm text-destructive">
             {errors.email.message}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="phone">
+          Phone number <span className="font-normal text-muted-foreground">(optional)</span>
+        </Label>
+        <Input
+          id="phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="082 123 4567"
+          className={pillInput}
+          aria-invalid={Boolean(errors.phone)}
+          aria-describedby={errors.phone ? "phone-error" : "phone-hint"}
+          {...register("phone")}
+        />
+        <p id="phone-hint" className="text-xs text-muted-foreground">
+          You can also use it to log in.
+        </p>
+        {errors.phone && (
+          <p id="phone-error" role="alert" className="text-sm text-destructive">
+            {errors.phone.message}
           </p>
         )}
       </div>

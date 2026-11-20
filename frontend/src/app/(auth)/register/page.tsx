@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { SocialLogin } from "@/features/auth/components/social-login";
 import { AuthShell } from "@/features/auth/components/auth-shell";
 import { RegisterForm } from "@/features/auth/components/register-form";
 
@@ -13,7 +15,10 @@ export default function RegisterPage() {
       imageSrc="/images/auth-register.jpg"
       imageAlt="Loaded kotas fresh off the grill"
     >
-      <RegisterForm />
+      <Suspense>
+        <RegisterForm />
+        <SocialLogin />
+      </Suspense>
     </AuthShell>
   );
 }
