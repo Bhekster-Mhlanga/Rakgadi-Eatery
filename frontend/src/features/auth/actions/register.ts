@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { normalizePhone } from "@/features/auth/lib/phone";
@@ -8,7 +7,8 @@ import { registerSchema } from "@/features/auth/schemas/register-schema";
 
 export type RegisterResult =
   | { status: "error"; message: string; field?: "phone" | "email" }
-  | { status: "check-email" };
+  | { status: "check-email" }
+  | { status: "success"; redirectTo: string };
 
 function friendlyError(code: string | undefined): string {
   switch (code) {
@@ -82,5 +82,5 @@ export async function registerUser(input: unknown): Promise<RegisterResult> {
   // Email confirmation is on in Supabase: no session until they confirm.
   if (!data.session) return { status: "check-email" };
 
-  redirect("/");
+  return { status: "success", redirectTo: "/" };
 }

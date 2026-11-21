@@ -1,13 +1,14 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { normalizePhone } from "@/features/auth/lib/phone";
 import { getSafeRedirectPath } from "@/features/auth/lib/safe-redirect";
 import { loginSchema } from "@/features/auth/schemas/login-schema";
 
-export type LoginResult = { error: string; field?: "phone" };
+export type LoginResult =
+  | { error: string; field?: "phone" }
+  | { redirectTo: string };
 
 const GOOGLE_HINT = "If you signed up with Google, use “Continue with Google”.";
 
@@ -79,5 +80,7 @@ export async function login(
     };
   }
 
-  redirect(getSafeRedirectPath(next));
+  // The browser does the navigation (a redirect thrown from here would reach the
+  // form as an error). The path is checked so it can only stay inside this site.
+  return { redirectTo: getSafeRedirectPath(next) };
 }

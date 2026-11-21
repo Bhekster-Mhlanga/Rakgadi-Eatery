@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,6 +18,8 @@ import {
 const pillInput = "h-11 rounded-full px-4";
 
 export function RegisterForm() {
+  const router = useRouter();
+  const [redirecting, setRedirecting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -40,8 +43,15 @@ export function RegisterForm() {
   async function onSubmit(values: RegisterValues) {
     setServerError(null);
     try {
-      // On success the server redirects, so we only get a result back otherwise.
       const result = await registerUser(values);
+
+      if (result.status === "success") {
+        // Keep the button disabled until the new page has taken over.
+        setRedirecting(true);
+        router.push(result.redirectTo);
+        router.refresh();
+        return;
+      }
       if (result.status === "check-email") {
         setCheckEmail(true);
         return;
@@ -192,10 +202,10 @@ export function RegisterForm() {
 
       <Button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || redirecting}
         className="h-11 w-full rounded-full text-base"
       >
-        {isSubmitting ? (
+        {isSubmitting || redirecting ? (
           <>
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             Creating account...

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,9 +24,11 @@ const METHOD_LABELS: Record<LoginMethod, string> = {
 };
 
 export function LoginForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [method, setMethod] = useState<LoginMethod>("email");
   const [showPassword, setShowPassword] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(
     searchParams.get("error") === "oauth"
       ? "Google sign-in didn't work. Please try again."
@@ -55,11 +57,19 @@ export function LoginForm() {
   async function onSubmit(values: LoginValues) {
     setServerError(null);
     try {
-      // On success the server redirects, so we only get a result back for errors.
       const result = await login(values, searchParams.get("next"));
-      if (result?.field) {
+
+      if ("redirectTo" in result) {
+        // Keep the button disabled until the new page has taken over.
+        setRedirecting(true);
+        router.push(result.redirectTo);
+        router.refresh();
+        return;
+      }
+
+      if (result.field) {
         setError(result.field, { message: result.error });
-      } else if (result?.error) {
+      } else {
         setServerError(result.error);
       }
     } catch {
@@ -169,10 +179,10 @@ export function LoginForm() {
 
       <Button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || redirecting}
         className="h-11 w-full rounded-full text-base"
       >
-        {isSubmitting ? (
+        {isSubmitting || redirecting ? (
           <>
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             Logging in...
